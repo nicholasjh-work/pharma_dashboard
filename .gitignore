@@ -1,0 +1,17 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+*.pbix
+*.pbit
+*.egg-info/
+dist/
+build/

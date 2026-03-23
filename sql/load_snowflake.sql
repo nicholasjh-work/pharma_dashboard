@@ -1,0 +1,16 @@
+CREATE DATABASE IF NOT EXISTS PHARMA_ANALYTICS;
+USE DATABASE PHARMA_ANALYTICS;
+CREATE SCHEMA IF NOT EXISTS RAW;
+USE SCHEMA RAW;
+CREATE WAREHOUSE IF NOT EXISTS PHARMA_WH WAREHOUSE_SIZE='XSMALL' AUTO_SUSPEND=60 AUTO_RESUME=TRUE;
+USE WAREHOUSE PHARMA_WH;
+CREATE OR REPLACE FILE FORMAT csv_format TYPE='CSV' FIELD_OPTIONALLY_ENCLOSED_BY='"' SKIP_HEADER=1 NULL_IF=('','NULL') TRIM_SPACE=TRUE;
+CREATE OR REPLACE STAGE pharma_stage FILE_FORMAT=csv_format;
+COPY INTO dim_patients FROM @pharma_stage/dim_patients.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO dim_payers FROM @pharma_stage/dim_payers.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO dim_pharmacies FROM @pharma_stage/dim_pharmacies.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO dim_drugs FROM @pharma_stage/dim_drugs.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO dim_dates FROM @pharma_stage/dim_dates.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO fact_rx_fills FROM @pharma_stage/fact_rx_fills.csv.gz FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+COPY INTO fact_shipments (drug_id,shipment_month,channel_type,shipments) FROM (SELECT $1,$2,$3,$4 FROM @pharma_stage/fact_shipments.csv.gz) FILE_FORMAT=csv_format ON_ERROR='ABORT_STATEMENT';
+SELECT 'dim_patients' AS tbl, COUNT(*) AS rows FROM dim_patients UNION ALL SELECT 'dim_payers', COUNT(*) FROM dim_payers UNION ALL SELECT 'dim_pharmacies', COUNT(*) FROM dim_pharmacies UNION ALL SELECT 'dim_drugs', COUNT(*) FROM dim_drugs UNION ALL SELECT 'dim_dates', COUNT(*) FROM dim_dates UNION ALL SELECT 'fact_rx_fills', COUNT(*) FROM fact_rx_fills UNION ALL SELECT 'fact_shipments', COUNT(*) FROM fact_shipments ORDER BY tbl;
