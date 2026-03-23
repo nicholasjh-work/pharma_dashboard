@@ -1,0 +1,6 @@
+payer_id,payer_name
+PY001,Commercial
+PY002,Medicare
+PY003,Medicaid
+PY004,VA
+PY005,Self-Pay

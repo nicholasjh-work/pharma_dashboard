@@ -1,0 +1,11 @@
+pharmacy_id,pharmacy_name,channel_type
+PH001,Pharmacy_1,Retail
+PH002,Pharmacy_2,Retail
+PH003,Pharmacy_3,Retail
+PH004,Pharmacy_4,Retail
+PH005,Pharmacy_5,Retail
+PH006,Pharmacy_6,Specialty
+PH007,Pharmacy_7,Specialty
+PH008,Pharmacy_8,Specialty
+PH009,Pharmacy_9,Specialty
+PH010,Pharmacy_10,Retail
