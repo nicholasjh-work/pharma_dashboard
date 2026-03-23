@@ -100,3 +100,4 @@ To run the notebook, install the required Python packages (pandas, matplotlib an
 ## Disclaimer
 
 This project is for educational and demonstration purposes only.  All data are synthetic and randomly generated; they do not reflect real patients or commercial performance.
+The analytics code and schema in this repository reflect a project delivered for a healthcare analytics client focused on wound, burn, hyperbaric, and infusion services. The actual data used in that engagement remain confidential and proprietary. The sample data bundled here are synthetic and randomly generated and are not derived from real patients or commercial activity.
