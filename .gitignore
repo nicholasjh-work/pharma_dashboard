@@ -1,17 +1,28 @@
+# Environment
 .env
 .venv/
 venv/
 __pycache__/
 *.pyc
+
+# IDE
 .vscode/
 .idea/
 *.swp
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Jupyter
 .ipynb_checkpoints/
 notebooks/.ipynb_checkpoints/
+
+# Power BI
 *.pbix
 *.pbit
+
+# Python packaging
 *.egg-info/
 dist/
 build/

@@ -1,6 +1,6 @@
 drug_id,drug_name,therapeutic_class
-DR001,Drug_1,Oncology
-DR002,Drug_2,Cardiology
-DR003,Drug_3,Oncology
-DR004,Drug_4,Cardiology
-DR005,Drug_5,Autoimmune
+DR001,Santyl,Wound Care
+DR002,Regranex,Wound Care
+DR003,Silvadene,Burn Care
+DR004,Remicade,Infusion Therapy
+DR005,Solu-Medrol,Hyperbaric/Infusion

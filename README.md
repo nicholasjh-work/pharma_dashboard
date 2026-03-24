@@ -1,103 +1,140 @@
 # Pharma Commercial Analytics Dashboard
 
-This project simulates a commercial analytics workflow for a specialty pharmaceutical product.  It uses synthetic data to model prescription fills, new patient starts, prior authorization outcomes, channel mix (specialty vs. retail pharmacies) and demand shipments.  The goal is to demonstrate how a Snowflake‑style data warehouse, SQL window functions, a Power BI dashboard and a Python notebook can be combined to provide actionable insights for a commercial team.
+**[Live Demo](https://nicholasjh-work.github.io/pharma_dashboard/)**
 
-## Business context
+Simulates a commercial analytics workflow for specialty pharmaceutical products used in wound care, burn care, hyperbaric, and infusion therapy. Uses synthetic data to model prescription fills, new patient starts, prior authorization outcomes, channel mix (specialty vs. retail pharmacies), and demand shipments.
 
-Manufacturers of specialty drugs need to monitor more than just total prescription volume.  Key performance indicators include:
+Built with Snowflake, SQL (window functions, CTEs), Power BI, and Python (pandas, matplotlib, seaborn).
 
-- **New patient starts:** counts of patients initiating therapy provide an early indicator of demand and the effectiveness of launch programs.
-- **Prior authorization approval/denial rates:** high denial rates can signal access barriers that require payer outreach or patient support.
-- **Time to fill:** delays between prescription and fill can reduce adherence and signal process bottlenecks.
-- **Channel mix:** understanding whether prescriptions flow through specialty vs. retail pharmacies helps optimize distribution strategy and patient support staffing.
-- **Demand shipments:** shipments from the manufacturer to distributors provide a view of supply chain dynamics and can be compared with prescription demand.
+## Business Context
 
-This project constructs a snowflake schema around these metrics, populates it with synthetic data, and demonstrates analytical queries and visualizations that could be used in a real dashboard.
+Manufacturers of specialty drugs track more than total prescription volume. Key performance indicators include:
 
-## Data generation
+- **New patient starts:** patients initiating therapy, an early indicator of demand and launch effectiveness.
+- **Prior authorization approval/denial rates:** high denial rates signal access barriers requiring payer outreach or patient support.
+- **Time to fill:** delays between prescription and fill reduce adherence and signal process bottlenecks.
+- **Channel mix:** specialty vs. retail pharmacy distribution informs staffing and logistics.
+- **Demand shipments:** manufacturer-to-distributor shipments compared against prescription demand for supply chain alignment.
 
-All data in this repository are synthetic and do not represent any actual patients or transactions.  The dataset was generated using the Python script embedded in `data_generation.py`.  Key design choices include:
+## Repo Structure
 
-- **Patients:** 500 fictitious patients with age and gender attributes.
-- **Payers:** five payer types (commercial, Medicare, Medicaid, VA and self‑pay).
-- **Pharmacies:** ten pharmacies randomly designated as specialty or retail channels.
-- **Drugs:** five products across different therapeutic classes.
-- **Rx fills:** 3 000 prescription fill events between **1 January 2024** and **31 December 2025**.  Each event includes prescription and fill dates, quantity, cost, prior authorization status and channel type.  A flag identifies whether the event is a new start for the patient.
-- **Shipments:** monthly demand shipments by drug and channel.
+```
+pharma-analytics/
+  data/                          Synthetic CSV files (dims + facts)
+    dim_patients.csv             500 patients
+    dim_payers.csv               5 payer types
+    dim_pharmacies.csv           10 pharmacies (specialty + retail)
+    dim_drugs.csv                5 drugs (Santyl, Regranex, Silvadene, Remicade, Solu-Medrol)
+    dim_dates.csv                Calendar 2024-2025
+    fact_rx_fills.csv            3,000 prescription fill events
+    fact_shipments.csv           240 monthly shipment rows
+  sql/
+    schema.sql                   Snowflake DDL (5 dims, 2 facts)
+    analysis_queries.sql         5 analytical queries with window functions
+    load_snowflake.sql           Full Snowflake setup: DB, schema, stage, COPY INTO, validation
+  notebooks/
+    patient_cohort_analysis.ipynb  EDA notebook (pandas, matplotlib, seaborn)
+  load_to_snowflake.py           Python loader using snowflake-connector-python
+  requirements.txt               Python dependencies
+  .env.example                   Snowflake credential template
+  .gitignore
+  README.md
+```
 
-The generated CSV files live under the `data/` directory:
+## Data Generation
 
-| File | Description |
-| --- | --- |
-| `dim_patients.csv` | Patient dimension with IDs, age and gender. |
-| `dim_payers.csv` | Payer dimension with payer names. |
-| `dim_pharmacies.csv` | Pharmacy dimension with channel type. |
-| `dim_drugs.csv` | Drug dimension with therapeutic class. |
-| `dim_dates.csv` | Date dimension for each calendar day from 2024–2025. |
-| `fact_rx_fills.csv` | Fact table of prescription fills. |
-| `fact_shipments.csv` | Fact table of monthly demand shipments. |
+All data are synthetic. 3,000 Rx fill events between Jan 2024 and Dec 2025 across five products used in wound care, burn care, hyperbaric, and infusion therapy (Santyl, Regranex, Silvadene, Remicade, Solu-Medrol). Each fill includes prescription and fill dates, quantity, cost, prior authorization status, channel type, and a new-start flag.
 
-## Schema design
+## Schema Design
 
-The snowflake schema is defined in `schema.sql`.  It comprises five dimension tables and two fact tables:
+Snowflake star schema defined in `sql/schema.sql`:
 
-- `dim_patients`, `dim_payers`, `dim_pharmacies`, `dim_drugs` and `dim_dates` hold descriptive attributes.
-- `fact_rx_fills` captures individual prescription events and links back to all dimensions.  It includes measures such as quantity, cost, time to fill, prior authorization status and whether the fill represents a new patient start.
-- `fact_shipments` stores monthly shipment volumes by product and channel.
+- **Dimensions:** `dim_patients`, `dim_payers`, `dim_pharmacies`, `dim_drugs`, `dim_dates`
+- **Facts:** `fact_rx_fills` (individual prescription events), `fact_shipments` (monthly demand shipments)
 
-Referential integrity is enforced via foreign keys, although Snowflake treats these as informational rather than enforced constraints.
+Foreign keys are defined for documentation; Snowflake treats these as informational.
 
-## Analytics queries
+## Analytics Queries
 
-`analysis_queries.sql` contains example SQL for Snowflake (or other ANSI‑SQL warehouse) demonstrating how to derive key metrics:
+`sql/analysis_queries.sql` contains 5 queries demonstrating window functions, date truncation, and conditional aggregation:
 
-1. **Rolling Rx volume trends:** calculates monthly fill counts and a three‑month rolling average using window functions to smooth trends.
-2. **Time‑to‑fill analysis:** computes the average and median time from prescription to fill for each payer and quarter.
-3. **Reimbursement approval rate by payer:** filters fills requiring prior authorization and calculates approval rates and cumulative approvals over time.
-4. **Channel mix:** determines the share of fills through specialty vs. retail pharmacies each month.
-5. **Patient journey funnel:** counts patients at each stage of a simple funnel (diagnosis, prior authorization approval, first fill and ongoing therapy).
+1. **Rolling Rx volume trends** with 3-month moving average
+2. **Time-to-fill analysis** by payer and quarter (average + median via PERCENTILE_CONT)
+3. **Reimbursement approval rate by payer** with cumulative tracking
+4. **Channel mix** (specialty vs. retail share per month)
+5. **Patient journey funnel** (diagnosis, PA approved, first fill, ongoing therapy)
 
-These queries can be executed directly in Snowflake or another SQL environment after loading the CSV files into corresponding tables.  They illustrate common analytical patterns such as window functions (`OVER`, `ROWS BETWEEN`), date truncation and conditional aggregation.
+## Loading Data into Snowflake
 
-## Power BI dashboard
+**Option A: SnowSQL CLI**
 
-While the repository cannot include a Power BI `.pbix` file, the metrics above lend themselves to a dashboard with the following structure:
+Run `sql/load_snowflake.sql` in order. It creates the database, schema, warehouse, tables, file format, and stage, then loads via COPY INTO with validation.
 
-- **Overview page:** big‑number cards showing total prescriptions, new patient starts, approval rate and average time to fill.  A slicer allows filtering by therapeutic class or payer.
-- **Volume trends:** line chart showing monthly fills with a rolling three‑month average, with drill‑down by channel type or drug.
-- **Patient journey funnel:** funnel visualization displaying counts of patients at each stage (diagnosis → PA approved → first fill → ongoing therapy).
-- **Payer performance:** bar charts comparing approval rates and time‑to‑fill statistics across payers, with conditional formatting to highlight outliers.
-- **Channel mix:** stacked column chart showing specialty vs. retail fills over time.
-- **Demand vs. supply:** combination chart overlaying shipment volumes from `fact_shipments` with prescription fills to highlight inventory alignment.
+```bash
+snowsql -a <account> -u <user> -d PHARMA_ANALYTICS -s RAW -f sql/load_snowflake.sql
+```
 
-To build the dashboard:
+For the PUT commands (file upload to stage), run from SnowSQL interactively:
 
-1. **Import data:** load the CSV files from `data/` into Power BI Desktop and define relationships between fact and dimension tables using the keys defined in `schema.sql`.
-2. **Create measures:** implement DAX measures mirroring the SQL queries (e.g., rolling averages, approval rate, time‑to‑fill percentiles).  DAX functions such as `CALCULATE`, `AVERAGEX`, `FILTER` and `DATEADD` will be useful.
-3. **Design visuals:** assemble the pages described above, ensuring consistent formatting and slicers for payer, drug and date.
-4. **Publish:** deploy the dashboard to Power BI Service (optional) and set up scheduled refreshes if you load updated data.
+```
+PUT file://./data/dim_patients.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/dim_payers.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/dim_pharmacies.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/dim_drugs.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/dim_dates.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/fact_rx_fills.csv @pharma_stage AUTO_COMPRESS=TRUE;
+PUT file://./data/fact_shipments.csv @pharma_stage AUTO_COMPRESS=TRUE;
+```
 
-## Python notebook
+**Option B: Python script**
 
-`patient_cohort_analysis.ipynb` contains an exploratory data analysis of the synthetic patient cohorts using pandas, seaborn and matplotlib.  It visualizes:
+```bash
+cp .env.example .env          # fill in Snowflake credentials
+pip install -r requirements.txt
+python load_to_snowflake.py
+```
 
-- Time‑to‑fill distribution by payer using box plots.
-- Channel mix counts (specialty vs. retail) using bar charts.
-- Prior authorization outcomes (approved vs. denied) using bar charts.
-- Average cost per therapeutic class.
-- Monthly new patient starts over time.
+Uses `snowflake-connector-python` with `write_pandas` for bulk loading. Creates tables from `schema.sql`, loads all CSVs, and validates row counts.
 
-To run the notebook, install the required Python packages (pandas, matplotlib and seaborn) and execute the cells.  The notebook assumes it is run from the repository root so that it can access the `data/` directory relative to its working directory.
+## Power BI Dashboard
 
-## Getting started
+The metrics map to a dashboard with these pages:
 
-1. **Clone or download** this repository.
-2. Ensure that Python 3.8+ is installed and install dependencies with `pip install pandas matplotlib seaborn`.
-3. Load the CSV data into your data warehouse of choice (e.g., Snowflake, BigQuery) using the table definitions in `schema.sql`.
-4. Run the SQL queries in `analysis_queries.sql` to compute KPIs or translate them into DAX measures within Power BI.
-5. Explore the synthetic data by opening `patient_cohort_analysis.ipynb` in Jupyter.
+- **Overview:** KPI cards (total Rx, new starts, approval rate, avg time to fill) with payer/drug slicers
+- **Volume trends:** monthly fills with rolling 3-month average, drill-down by channel or drug
+- **Patient journey funnel:** diagnosis, PA approved, first fill, ongoing therapy
+- **Payer performance:** approval rates and time-to-fill by payer with conditional formatting
+- **Channel mix:** stacked column chart showing specialty vs. retail over time
+- **Demand vs. supply:** shipments overlaid with Rx fills for inventory alignment
+
+## Python Notebook
+
+`notebooks/patient_cohort_analysis.ipynb` covers:
+
+- Time-to-fill distribution by payer (box plots)
+- Channel mix (specialty vs. retail bar charts)
+- Prior authorization outcomes
+- Average cost per therapeutic class
+- Monthly new patient starts over time
+
+## Getting Started
+
+```bash
+git clone https://github.com/YOUR_USERNAME/pharma-analytics.git
+cd pharma-analytics
+pip install -r requirements.txt
+
+# Option A: Load to Snowflake via Python
+cp .env.example .env  # fill credentials
+python load_to_snowflake.py
+
+# Option B: Load via SnowSQL
+snowsql -a <account> -u <user> -f sql/load_snowflake.sql
+
+# Run the notebook
+jupyter notebook notebooks/patient_cohort_analysis.ipynb
+```
 
 ## Disclaimer
 
-This project is for educational and demonstration purposes only.  All data are synthetic and randomly generated; they do not reflect real patients or commercial performance.
-The analytics code and schema in this repository reflect a project delivered for a healthcare analytics client focused on wound, burn, hyperbaric, and infusion services. The actual data used in that engagement remain confidential and proprietary. The sample data bundled here are synthetic and randomly generated and are not derived from real patients or commercial activity.
+Educational and demonstration purposes only. All data are synthetic and do not represent real patients, transactions, or commercial performance.

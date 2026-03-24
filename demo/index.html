@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pharma Commercial Analytics Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f8f9fa;--card:#fff;--border:#e2e8f0;--text:#1a202c;--muted:#64748b;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--teal:#0d9488;--purple:#7c3aed}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);padding:20px;max-width:1400px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:13px;margin-bottom:20px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.kpi-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.kpi-value{font-size:28px;font-weight:700}
+.kpi-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.kpi-value.blue{color:var(--blue)}
+.kpi-value.green{color:var(--green)}
+.kpi-value.amber{color:var(--amber)}
+.kpi-value.teal{color:var(--teal)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px}
+.chart-wrap{position:relative;height:260px}
+.funnel{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.funnel-bar{border-radius:6px;padding:10px 14px;color:#fff;display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:500}
+.funnel-bar .count{font-size:18px;font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+td{padding:8px 10px;border-bottom:1px solid var(--border)}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-amber{background:#fef3c7;color:#92400e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.filters{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.filters select{padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card)}
+.section-title{font-size:16px;font-weight:600;margin:24px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--blue)}
+@media(max-width:900px){.kpi-row,.grid-2,.grid-3{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<h1>Pharma Commercial Analytics Dashboard</h1>
+<p class="subtitle">Synthetic data, 3,000 Rx fills, 500 patients, Jan 2024 to Dec 2025. Wound care, burn care, hyperbaric, and infusion therapy products. Built with Snowflake, SQL, Python, Power BI.</p>
+
+<div class="filters">
+<select id="filterYear" onchange="updateDashboard()">
+<option value="all">All Years</option>
+<option value="2024">2024</option>
+<option value="2025">2025</option>
+</select>
+<select id="filterChannel" onchange="updateDashboard()">
+<option value="all">All Channels</option>
+<option value="Specialty">Specialty</option>
+<option value="Retail">Retail</option>
+</select>
+</div>
+
+<div class="kpi-row">
+<div class="kpi"><div class="kpi-label">Total Rx Fills</div><div class="kpi-value blue" id="kpiTotalFills">3,000</div><div class="kpi-sub">Across all products and payers</div></div>
+<div class="kpi"><div class="kpi-label">New Patient Starts</div><div class="kpi-value green" id="kpiNewStarts">1,749</div><div class="kpi-sub">Unique patients initiating therapy</div></div>
+<div class="kpi"><div class="kpi-label">PA Approval Rate</div><div class="kpi-value amber" id="kpiPARate">79.6%</div><div class="kpi-sub">Prior authorization approvals</div></div>
+<div class="kpi"><div class="kpi-label">Avg Time to Fill</div><div class="kpi-value teal" id="kpiTTF">4.8 days</div><div class="kpi-sub">Prescription to fill</div></div>
+</div>
+
+<div class="section-title">Volume Trends</div>
+<div class="grid-2">
+<div class="card"><div class="card-title">Monthly Rx fills and 3-month rolling average</div><div class="chart-wrap"><canvas id="chartVolume"></canvas></div></div>
+<div class="card"><div class="card-title">Monthly new patient starts</div><div class="chart-wrap"><canvas id="chartNewStarts"></canvas></div></div>
+</div>
+
+<div class="section-title">Payer Performance</div>
+<div class="grid-2">
+<div class="card"><div class="card-title">PA approval rate by payer</div><div class="chart-wrap"><canvas id="chartPARate"></canvas></div></div>
+<div class="card">
+<div class="card-title">Payer summary</div>
+<table>
+<thead><tr><th>Payer</th><th>PA Requests</th><th>Approved</th><th>Approval Rate</th><th>Avg Days to Fill</th></tr></thead>
+<tbody id="payerTable"></tbody>
+</table>
+</div>
+</div>
+
+<div class="section-title">Channel Mix and Patient Journey</div>
+<div class="grid-3">
+<div class="card"><div class="card-title">Channel mix (specialty vs retail)</div><div class="chart-wrap"><canvas id="chartChannel"></canvas></div></div>
+<div class="card"><div class="card-title">Fills by therapeutic class</div><div class="chart-wrap"><canvas id="chartDrugs"></canvas></div></div>
+<div class="card">
+<div class="card-title">Patient journey funnel</div>
+<div class="funnel" id="funnelContainer"></div>
+</div>
+</div>
+
+<div class="section-title">Product Detail</div>
+<div class="card">
+<table>
+<thead><tr><th>Drug</th><th>Therapeutic Class</th><th>Fills</th><th>Revenue</th><th>Avg Cost/Fill</th></tr></thead>
+<tbody id="drugTable"></tbody>
+</table>
+</div>
+
+<p style="margin-top:24px;font-size:11px;color:var(--muted)">All data are synthetic. This dashboard demonstrates the analytics workflow described in the repository README. Source: github.com/nicholasjh-work/pharma_dashboard</p>
+
+<script>
+const RAW_DATA = {"monthly":[{"month":"2024-01","fills":101,"new_starts":99},{"month":"2024-02","fills":118,"new_starts":106},{"month":"2024-03","fills":158,"new_starts":135},{"month":"2024-04","fills":126,"new_starts":110},{"month":"2024-05","fills":138,"new_starts":107},{"month":"2024-06","fills":102,"new_starts":76},{"month":"2024-07","fills":138,"new_starts":101},{"month":"2024-08","fills":143,"new_starts":94},{"month":"2024-09","fills":118,"new_starts":75},{"month":"2024-10","fills":151,"new_starts":81},{"month":"2024-11","fills":116,"new_starts":64},{"month":"2024-12","fills":120,"new_starts":71},{"month":"2025-01","fills":119,"new_starts":63},{"month":"2025-02","fills":94,"new_starts":53},{"month":"2025-03","fills":117,"new_starts":59},{"month":"2025-04","fills":115,"new_starts":53},{"month":"2025-05","fills":120,"new_starts":58},{"month":"2025-06","fills":121,"new_starts":52},{"month":"2025-07","fills":120,"new_starts":43},{"month":"2025-08","fills":142,"new_starts":62},{"month":"2025-09","fills":112,"new_starts":41},{"month":"2025-10","fills":132,"new_starts":52},{"month":"2025-11","fills":121,"new_starts":46},{"month":"2025-12","fills":158,"new_starts":48}],"payers":[{"payer_name":"Commercial","total":375,"approved":285,"approval_rate":76.0,"avg_ttf":4.7},{"payer_name":"Medicaid","total":383,"approved":309,"approval_rate":80.7,"avg_ttf":4.7},{"payer_name":"Medicare","total":343,"approved":280,"approval_rate":81.6,"avg_ttf":4.9},{"payer_name":"Self-Pay","total":374,"approved":294,"approval_rate":78.6,"avg_ttf":5.1},{"payer_name":"VA","total":361,"approved":294,"approval_rate":81.4,"avg_ttf":4.7}],"channel":[{"channel_type":"Retail","fills":1773},{"channel_type":"Specialty","fills":1227}],"funnel":[{"stage":"Diagnosis","count":499},{"stage":"PA Approved","count":435},{"stage":"First Fill","count":499},{"stage":"Ongoing Therapy","count":495}],"drugs":[{"drug_name":"Santyl","therapeutic_class":"Wound Care","fills":604,"revenue":1574020},{"drug_name":"Regranex","therapeutic_class":"Wound Care","fills":606,"revenue":1509933},{"drug_name":"Silvadene","therapeutic_class":"Burn Care","fills":568,"revenue":1488039},{"drug_name":"Remicade","therapeutic_class":"Infusion Therapy","fills":585,"revenue":1538672},{"drug_name":"Solu-Medrol","therapeutic_class":"Hyperbaric/Infusion","fills":637,"revenue":1606521}]};
+
+let charts = {};
+
+function rollingAvg(arr, window) {
+    return arr.map((v, i) => {
+        const start = Math.max(0, i - window + 1);
+        const slice = arr.slice(start, i + 1);
+        return Math.round(slice.reduce((a, b) => a + b, 0) / slice.length);
+    });
+}
+
+function filterData() {
+    const year = document.getElementById('filterYear').value;
+    const channel = document.getElementById('filterChannel').value;
+    let monthly = RAW_DATA.monthly;
+    if (year !== 'all') monthly = monthly.filter(m => m.month.startsWith(year));
+    return { monthly, year, channel };
+}
+
+function updateKPIs(data) {
+    const totalFills = data.monthly.reduce((a, m) => a + m.fills, 0);
+    const totalStarts = data.monthly.reduce((a, m) => a + m.new_starts, 0);
+    document.getElementById('kpiTotalFills').textContent = totalFills.toLocaleString();
+    document.getElementById('kpiNewStarts').textContent = totalStarts.toLocaleString();
+}
+
+function buildVolumeChart(data) {
+    const ctx = document.getElementById('chartVolume').getContext('2d');
+    if (charts.volume) charts.volume.destroy();
+    const fills = data.monthly.map(m => m.fills);
+    const avg3m = rollingAvg(fills, 3);
+    charts.volume = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.monthly.map(m => m.month),
+            datasets: [
+                { label: 'Rx Fills', data: fills, backgroundColor: 'rgba(37,99,235,0.7)', borderRadius: 4, order: 2 },
+                { label: '3-Mo Avg', data: avg3m, type: 'line', borderColor: '#dc2626', borderWidth: 2, pointRadius: 0, tension: 0.3, order: 1 }
+            ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }, scales: { x: { ticks: { font: { size: 10 }, maxRotation: 45 } }, y: { beginAtZero: true } } }
+    });
+}
+
+function buildNewStartsChart(data) {
+    const ctx = document.getElementById('chartNewStarts').getContext('2d');
+    if (charts.newStarts) charts.newStarts.destroy();
+    charts.newStarts = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.monthly.map(m => m.month),
+            datasets: [{ label: 'New Patient Starts', data: data.monthly.map(m => m.new_starts), borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', fill: true, tension: 0.3, pointRadius: 3 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { size: 10 }, maxRotation: 45 } }, y: { beginAtZero: true } } }
+    });
+}
+
+function buildPAChart() {
+    const ctx = document.getElementById('chartPARate').getContext('2d');
+    if (charts.paRate) charts.paRate.destroy();
+    const payers = RAW_DATA.payers;
+    const colors = payers.map(p => p.approval_rate >= 80 ? '#16a34a' : p.approval_rate >= 75 ? '#d97706' : '#dc2626');
+    charts.paRate = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: payers.map(p => p.payer_name),
+            datasets: [{ label: 'Approval Rate %', data: payers.map(p => p.approval_rate), backgroundColor: colors, borderRadius: 6 }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { min: 60, max: 100, ticks: { callback: v => v + '%' } } } }
+    });
+}
+
+function buildPayerTable() {
+    const tbody = document.getElementById('payerTable');
+    tbody.innerHTML = RAW_DATA.payers.map(p => {
+        const badgeClass = p.approval_rate >= 80 ? 'badge-green' : p.approval_rate >= 75 ? 'badge-amber' : 'badge-red';
+        return `<tr><td>${p.payer_name}</td><td>${p.total}</td><td>${p.approved}</td><td><span class="badge ${badgeClass}">${p.approval_rate}%</span></td><td>${p.avg_ttf} days</td></tr>`;
+    }).join('');
+}
+
+function buildChannelChart() {
+    const ctx = document.getElementById('chartChannel').getContext('2d');
+    if (charts.channel) charts.channel.destroy();
+    charts.channel = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: RAW_DATA.channel.map(c => c.channel_type),
+            datasets: [{ data: RAW_DATA.channel.map(c => c.fills), backgroundColor: ['#2563eb', '#0d9488'], borderWidth: 0 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 12 } } } } }
+    });
+}
+
+function buildDrugChart() {
+    const ctx = document.getElementById('chartDrugs').getContext('2d');
+    if (charts.drugs) charts.drugs.destroy();
+    const colors = ['#2563eb','#7c3aed','#0d9488','#d97706','#dc2626'];
+    charts.drugs = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: RAW_DATA.drugs.map(d => d.drug_name),
+            datasets: [{ label: 'Fills', data: RAW_DATA.drugs.map(d => d.fills), backgroundColor: colors, borderRadius: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+}
+
+function buildFunnel() {
+    const container = document.getElementById('funnelContainer');
+    const colors = ['#2563eb','#7c3aed','#0d9488','#16a34a'];
+    const maxCount = Math.max(...RAW_DATA.funnel.map(f => f.count));
+    container.innerHTML = RAW_DATA.funnel.map((f, i) => {
+        const width = Math.max(60, (f.count / maxCount * 100));
+        return `<div class="funnel-bar" style="background:${colors[i]};width:${width}%"><span>${f.stage}</span><span class="count">${f.count}</span></div>`;
+    }).join('');
+}
+
+function buildDrugTable() {
+    const tbody = document.getElementById('drugTable');
+    tbody.innerHTML = RAW_DATA.drugs.map(d => {
+        const avgCost = Math.round(d.revenue / d.fills);
+        return `<tr><td><strong>${d.drug_name}</strong></td><td>${d.therapeutic_class}</td><td>${d.fills.toLocaleString()}</td><td>$${d.revenue.toLocaleString()}</td><td>$${avgCost.toLocaleString()}</td></tr>`;
+    }).join('');
+}
+
+function updateDashboard() {
+    const data = filterData();
+    updateKPIs(data);
+    buildVolumeChart(data);
+    buildNewStartsChart(data);
+}
+
+buildVolumeChart(filterData());
+buildNewStartsChart(filterData());
+buildPAChart();
+buildPayerTable();
+buildChannelChart();
+buildDrugChart();
+buildFunnel();
+buildDrugTable();
+</script>
+</body>
+</html>
